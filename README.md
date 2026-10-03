@@ -1,2 +1,2 @@
-# Kaleidoodle
+# Kaleidoodles
 Creative coding 
