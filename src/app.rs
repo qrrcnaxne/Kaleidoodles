@@ -1,6 +1,10 @@
+use std::time::Duration;
+
 use bevy::{
+    app::ScheduleRunnerPlugin,
     prelude::*,
-    window::{Window, WindowPlugin, WindowResolution},
+    window::{ExitCondition, WindowPlugin},
+    winit::WinitPlugin,
 };
 
 use crate::{
@@ -14,14 +18,13 @@ pub(crate) fn run() {
     let is_recording = recording.is_some();
 
     let default_plugins = if is_recording {
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: WindowResolution::new(100, 100),
-                decorations: false,
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
                 ..default()
-            }),
-            ..default()
-        })
+            })
+            .disable::<WinitPlugin>()
     } else {
         DefaultPlugins.set(WindowPlugin::default())
     };
@@ -35,6 +38,9 @@ pub(crate) fn run() {
         let _ = std::fs::create_dir_all(&rec.output_dir);
         app.insert_resource(rec);
         app.add_plugins(RecordingPlugin);
+        app.add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )));
     }
 
     app.run();

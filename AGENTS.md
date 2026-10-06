@@ -40,6 +40,17 @@ Use relevant tools when installed; don't install tools or add project configurat
 - `cargo geiger` inventories unsafe usage in the project/dependency graph; treat it as an audit aid, not proof of unsoundness or safety.
 - Miri is dynamic UB detection and Kani is focused model checking, not general-purpose static linting. Use only when relevant and toolchain-compatible. `cargo-semver-checks` is for published library API compatibility, not this binary app unless it gains a public library API.
 
+## Recurring audits
+
+Run these proactively at sensible project milestones, without waiting for a prompt:
+
+- Check for documentation/code drift and sweep for leftovers from abandoned or superseded fixes.
+- Review `target/` size and run the whole-project formatting, check, Clippy, documentation, and Cargo manifest-order checks; use the commands and flags in the Rust validation section plus `cargo sort --check`.
+- Before asking for commit approval, sync docs that describe changed behavior or structure and correct stale references.
+- A `docs audit` request with a named area means a full pass over `docs/`; the named area is an emphasis, not a scope limit.
+
+See [the audit index](docs/Audit%20History.md) for rerun triggers and [Software Quality](docs/Software%20Quality.md) for audit methods and the append-only run log.
+
 ## Tool availability checked in this environment
 
 Available: stable Rust with rustfmt and Clippy; `cargo-sort` 2.0.1, `cargo-machete` 0.9.2, and `cargo-audit` 0.22.2. Not found: `typos`, `cargo-shear`, `cargo-hack`, `cargo-geiger`, `cargo-deny`, `cargo-udeps`, `cargo-semver-checks`, Kani, and Bevy CLI/linter. Miri's Cargo shim exists, but its component is not installed for the active stable toolchain. Recheck availability in a new session.
@@ -68,8 +79,9 @@ The app supports a deterministic frame-capture mode for offline video export.
 
 - Keep all exported `.mp4` files in the `data/` directory. `data/` is gitignored; never commit artifacts.
 - Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory.
-- Recording creates a small primary window to keep Winit/WGPU happy, then renders the sketch to a strict **1080 × 1920** offscreen `RenderTarget::Image`.
-- The sketch advances at a fixed **1/60 s** timestep and the pipeline saves exactly **600 PNG frames** (10 seconds at 60 fps).
+- Recording runs headless: `WinitPlugin` is disabled, no primary window is created, and `ScheduleRunnerPlugin` drives the loop at a fixed 60 Hz.
+- The sketch renders to a strict **1080 × 1920** offscreen `RenderTarget::Image`.
+- The simulation advances at a fixed **1/60 s** timestep and the pipeline saves exactly **600 PNG frames** (10 seconds at 60 fps).
 - The app exits automatically after the last frame.
 - Encode the PNG sequence with ffmpeg and write the result to `data/`:
 
@@ -84,6 +96,10 @@ The app supports a deterministic frame-capture mode for offline video export.
 ## Queue convention
 
 Use one canonical queue only: `docs/Queue.md`. Keep each item to exactly one sentence; put implementation/design detail in the relevant project documentation and link to it from the queue. Delete completed items rather than marking them done. Don't split the queue by topic or create a second queue.
+
+## Docs organization
+
+Each file in `docs/` begins, immediately after its title, with a `## Purpose` section that states its one specific purpose. Keep content in the file whose purpose it serves; don't duplicate detail across files. `docs/Ledger.md` catalogs only the generative art pieces built in the repo (the sketches themselves), not infrastructure, process rules, or plans. Before adding a doc, define its purpose; if content fits no existing file's purpose, reconsider the placement before creating a new file.
 
 ## Git and collaboration
 

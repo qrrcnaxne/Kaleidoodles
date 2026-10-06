@@ -1,5 +1,9 @@
 # Ideas to improve the Pi setup
 
+## Purpose
+
+Collect researched candidate improvements to the Pi setup for later review.
+
 Written 2026-10-03. Sources: other coding agents (Codex CLI, Gemini CLI, Antigravity, Cursor CLI, Aider, Cline, Roo Code, Goose, Amp, Factory Droid, Crush, Kimi CLI, Qwen Code, Continue, Zed, Warp, GitHub Copilot CLI, Kiro), real Pi configurations and write-ups, and Pi's own docs and example extensions. Claude Code, oh-my-pi, and OpenCode were compared earlier and are not repeated here.
 
 **Nothing here is decided or installed.** Items already decided in [pi-research.md](pi-research.md) are not re-proposed. Parked items (capability 7) appear only where research found a new angle.

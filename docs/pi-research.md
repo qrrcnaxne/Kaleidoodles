@@ -1,8 +1,10 @@
 # Pi setup and capability research
 
-Written 2026-10-03. Pi 1.0.0, default provider `opencode`, default model `gpt-6-luna` (1.05M-token window). Pi's core is small (read, bash, edit, write); everything else is an added capability.
+## Purpose
 
-This doc records what is installed, why, what was rejected, and what is still open. Facts marked **verified** were checked on disk or by running the shipped code. Anything marked **untested** has not been exercised in a live Pi session.
+Document what is installed in the Pi setup, why, what was rejected, and what remains open.
+
+Written 2026-10-03. Pi 1.0.0, default provider `opencode`, default model `gpt-6-luna` (1.05M-token window). Pi's core is small (read, bash, edit, write); everything else is an added capability. Facts marked **verified** were checked on disk or by running the shipped code. Anything marked **untested** has not been exercised in a live Pi session.
 
 ## Current state
 
