@@ -66,18 +66,20 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 The app supports a deterministic frame-capture mode for offline video export.
 
-- Run `cargo run -- --record <directory>` to capture frames.
+- Keep all exported `.mp4` files in the `data/` directory. `data/` is gitignored; never commit artifacts.
+- Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory.
 - Recording fixes the window to **1080 × 1920** (9:16 for Instagram Reels), advances the sketch at a fixed **60 fps** timestep, and captures **600 PNG frames** (10 seconds).
 - The app exits automatically after the last frame.
-- Encode the PNG sequence with ffmpeg:
+- Encode the PNG sequence with ffmpeg and write the result to `data/`:
 
   ```sh
-  ffmpeg -framerate 60 -i <directory>/%04d.png \
+  ffmpeg -framerate 60 -i frames/%04d.png \
+    -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black" \
     -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart \
-    kaleidoodles.mp4
+    data/kaleidoodles_reel.mp4
   ```
 
-- Requires `ffmpeg` installed. Adjust resolution or crop in ffmpeg for other Instagram formats.
+- Requires `ffmpeg` installed. Adjust the `-vf` filter for other Instagram formats.
 
 ## Queue convention
 

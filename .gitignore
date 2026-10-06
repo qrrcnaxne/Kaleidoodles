@@ -30,4 +30,5 @@ rustc-ice-*.txt
 
 # Exported video artifacts
 frames/
+data/
 *.mp4
