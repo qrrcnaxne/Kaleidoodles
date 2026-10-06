@@ -1,13 +1,8 @@
 use std::f32::consts::TAU;
 
-use bevy::{
-    app::AppExit,
-    prelude::*,
-    render::view::screenshot::{Capturing, Screenshot, save_to_disk},
-    window::PrimaryWindow,
-};
+use bevy::{camera::RenderTarget, prelude::*, window::PrimaryWindow};
 
-use crate::recording::Recording;
+use crate::recording::{Recording, RecordingRenderTarget};
 
 const PARTICLE_COUNT: usize = 1_600;
 const PARTICLE_RADIUS: f32 = 2.2;
@@ -19,14 +14,8 @@ pub(super) struct FlowFieldPlugin;
 impl Plugin for FlowFieldPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ClearColor(Color::srgb(0.008, 0.012, 0.025)))
-            .add_systems(Startup, setup)
-            .add_systems(
-                Update,
-                (
-                    move_particles.run_if(not(resource_exists::<Recording>)),
-                    record_frame.run_if(resource_exists::<Recording>),
-                ),
-            );
+            .add_systems(PostStartup, setup)
+            .add_systems(Update, move_particles);
     }
 }
 
@@ -37,13 +26,29 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    recording: Option<Res<Recording>>,
+    render_target: Option<Res<RecordingRenderTarget>>,
+    window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
-    commands.spawn(Camera2d);
-
-    let viewport = Vec2::new(window.width(), window.height());
+    let viewport = match recording.as_ref() {
+        Some(rec) => Vec2::new(rec.width as f32, rec.height as f32),
+        None => {
+            let window = window.as_ref().unwrap();
+            Vec2::new(window.width(), window.height())
+        }
+    };
     if viewport.min_element() <= 0.0 {
         return;
+    }
+
+    if let Some(target) = render_target {
+        commands.spawn((
+            Camera2d,
+            RenderTarget::Image(target.0.clone().into()),
+            Transform::default(),
+        ));
+    } else {
+        commands.spawn(Camera2d);
     }
 
     let particle_mesh = meshes.add(Circle::new(PARTICLE_RADIUS));
@@ -62,45 +67,27 @@ fn setup(
 
 fn move_particles(
     time: Res<Time>,
-    window: Single<&Window, With<PrimaryWindow>>,
+    recording: Option<Res<Recording>>,
+    window: Option<Single<&Window, With<PrimaryWindow>>>,
     mut particles: Query<&mut Transform, With<FlowParticle>>,
 ) {
-    let half_bounds = Vec2::new(window.width(), window.height()) * 0.5;
+    let viewport = match recording.as_ref() {
+        Some(rec) => Vec2::new(rec.width as f32, rec.height as f32),
+        None => {
+            let window = window.as_ref().unwrap();
+            Vec2::new(window.width(), window.height())
+        }
+    };
+    let half_bounds = viewport * 0.5;
     if half_bounds.min_element() <= 0.0 {
         return;
     }
 
-    advance_particles(&mut particles, half_bounds, time.delta_secs());
-}
-
-fn record_frame(
-    mut commands: Commands,
-    mut recording: ResMut<Recording>,
-    mut particles: Query<&mut Transform, With<FlowParticle>>,
-    capturing: Query<(), With<Capturing>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    mut app_exit: MessageWriter<AppExit>,
-) {
-    if !capturing.is_empty() {
-        return;
-    }
-
-    if recording.current_frame >= recording.max_frames {
-        app_exit.write(AppExit::Success);
-        return;
-    }
-
-    let half_bounds = Vec2::new(window.width(), window.height()) * 0.5;
-    advance_particles(&mut particles, half_bounds, recording.fixed_dt);
-
-    let frame_path = recording
-        .output_dir
-        .join(format!("{:04}.png", recording.current_frame));
-    commands
-        .spawn(Screenshot::primary_window())
-        .observe(save_to_disk(frame_path));
-
-    recording.current_frame += 1;
+    let dt = match recording.as_ref() {
+        Some(rec) => rec.fixed_dt,
+        None => time.delta_secs(),
+    };
+    advance_particles(&mut particles, half_bounds, dt);
 }
 
 fn advance_particles(
