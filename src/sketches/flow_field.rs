@@ -1,13 +1,20 @@
 use std::f32::consts::TAU;
 
-use bevy::{camera::RenderTarget, prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 
+use super::common::{simulation_delta, spawn_sketch_camera, viewport_size};
 use crate::recording::{Recording, RecordingRenderTarget};
 
 const PARTICLE_COUNT: usize = 1_600;
 const PARTICLE_RADIUS: f32 = 2.2;
 const PARTICLE_SPEED: f32 = 90.0;
 const FLOW_CELL_SIZE: f32 = 360.0;
+const COLOR_PALETTE_SIZE: usize = 24;
+const COLOR_HUE_START: f32 = 120.0;
+const COLOR_HUE_SPAN: f32 = 200.0;
+const COLOR_DRIFT_SPEED: f32 = 8.0;
+const COLOR_SATURATION: f32 = 0.9;
+const COLOR_LIGHTNESS: f32 = 0.65;
 
 pub(super) struct FlowFieldPlugin;
 
@@ -15,12 +22,18 @@ impl Plugin for FlowFieldPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ClearColor(Color::srgb(0.008, 0.012, 0.025)))
             .add_systems(PostStartup, setup)
-            .add_systems(Update, move_particles);
+            .add_systems(Update, (move_particles, animate_particle_colors));
     }
 }
 
 #[derive(Component)]
 struct FlowParticle;
+
+#[derive(Resource)]
+struct ParticlePalette {
+    material_handles: Vec<Handle<ColorMaterial>>,
+    elapsed_secs: f32,
+}
 
 fn setup(
     mut commands: Commands,
@@ -30,39 +43,39 @@ fn setup(
     render_target: Option<Res<RecordingRenderTarget>>,
     window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
-    let viewport = match recording.as_ref() {
-        Some(rec) => Vec2::new(rec.width as f32, rec.height as f32),
-        None => {
-            let window = window.as_ref().unwrap();
-            Vec2::new(window.width(), window.height())
-        }
-    };
-    if viewport.min_element() <= 0.0 {
+    let window_size = window
+        .as_ref()
+        .map(|window| Vec2::new(window.width(), window.height()));
+    let Some(viewport) = viewport_size(recording.as_deref(), window_size) else {
         return;
-    }
-
-    if let Some(target) = render_target {
-        commands.spawn((
-            Camera2d,
-            RenderTarget::Image(target.0.clone().into()),
-            Transform::default(),
-        ));
-    } else {
-        commands.spawn(Camera2d);
-    }
+    };
+    spawn_sketch_camera(&mut commands, render_target.as_deref());
 
     let particle_mesh = meshes.add(Circle::new(PARTICLE_RADIUS));
-    let particle_material = materials.add(Color::srgb(0.42, 0.84, 1.0));
+    let palette_materials: Vec<_> = (0..COLOR_PALETTE_SIZE)
+        .map(|index| {
+            materials.add(Color::hsl(
+                palette_hue(index, 0.0),
+                COLOR_SATURATION,
+                COLOR_LIGHTNESS,
+            ))
+        })
+        .collect();
 
     for index in 0..PARTICLE_COUNT {
         let position = initial_position(index as u32 + 1, viewport);
         commands.spawn((
             Mesh2d(particle_mesh.clone()),
-            MeshMaterial2d(particle_material.clone()),
+            MeshMaterial2d(palette_materials[index % COLOR_PALETTE_SIZE].clone()),
             Transform::from_translation(position.extend(0.0)),
             FlowParticle,
         ));
     }
+
+    commands.insert_resource(ParticlePalette {
+        material_handles: palette_materials,
+        elapsed_secs: 0.0,
+    });
 }
 
 fn move_particles(
@@ -71,23 +84,41 @@ fn move_particles(
     window: Option<Single<&Window, With<PrimaryWindow>>>,
     mut particles: Query<&mut Transform, With<FlowParticle>>,
 ) {
-    let viewport = match recording.as_ref() {
-        Some(rec) => Vec2::new(rec.width as f32, rec.height as f32),
-        None => {
-            let window = window.as_ref().unwrap();
-            Vec2::new(window.width(), window.height())
-        }
+    let window_size = window
+        .as_ref()
+        .map(|window| Vec2::new(window.width(), window.height()));
+    let Some(viewport) = viewport_size(recording.as_deref(), window_size) else {
+        return;
     };
     let half_bounds = viewport * 0.5;
-    if half_bounds.min_element() <= 0.0 {
-        return;
-    }
 
-    let dt = match recording.as_ref() {
-        Some(rec) => rec.fixed_dt,
-        None => time.delta_secs(),
-    };
+    let dt = simulation_delta(recording.as_deref(), time.delta_secs());
     advance_particles(&mut particles, half_bounds, dt);
+}
+
+fn animate_particle_colors(
+    time: Res<Time>,
+    recording: Option<Res<Recording>>,
+    palette: Option<ResMut<ParticlePalette>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let Some(mut palette) = palette else {
+        return;
+    };
+
+    let dt = simulation_delta(recording.as_deref(), time.delta_secs());
+    palette.elapsed_secs += dt;
+    let elapsed_secs = palette.elapsed_secs;
+
+    for (index, handle) in palette.material_handles.iter().enumerate() {
+        if let Some(mut material) = materials.get_mut(handle) {
+            material.color = Color::hsl(
+                palette_hue(index, elapsed_secs),
+                COLOR_SATURATION,
+                COLOR_LIGHTNESS,
+            );
+        }
+    }
 }
 
 fn advance_particles(
@@ -120,6 +151,11 @@ fn initial_position(index: u32, viewport: Vec2) -> Vec2 {
     let x = halton(index, 2);
     let y = halton(index, 3);
     Vec2::new((x - 0.5) * viewport.x, (y - 0.5) * viewport.y)
+}
+
+fn palette_hue(index: usize, elapsed_secs: f32) -> f32 {
+    let palette_offset = COLOR_HUE_SPAN * index as f32 / COLOR_PALETTE_SIZE as f32;
+    (COLOR_HUE_START + palette_offset + elapsed_secs * COLOR_DRIFT_SPEED).rem_euclid(360.0)
 }
 
 fn halton(mut index: u32, base: u32) -> f32 {
@@ -161,6 +197,17 @@ mod tests {
             let length = flow_direction(position).length();
             assert!((length - 1.0).abs() < 1.0e-5);
         }
+    }
+
+    #[test]
+    fn palette_colors_are_spread_out_and_drift_over_time() {
+        let first_hue = palette_hue(0, 0.0);
+        let later_palette_hue = palette_hue(COLOR_PALETTE_SIZE / 2, 0.0);
+        let drifted_hue = palette_hue(0, 1.0);
+
+        assert_eq!(first_hue, COLOR_HUE_START);
+        assert!(later_palette_hue > first_hue);
+        assert_eq!(drifted_hue, first_hue + COLOR_DRIFT_SPEED);
     }
 
     #[test]

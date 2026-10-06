@@ -2,6 +2,7 @@
 
 use bevy::prelude::{App, Plugin};
 
+mod common;
 mod flow_field;
 
 pub(crate) struct SketchesPlugin;

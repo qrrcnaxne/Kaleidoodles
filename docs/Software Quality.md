@@ -16,8 +16,6 @@ a routine basis — none of these are wired into CI yet.
   database. Advisories can change without project changes; its rerun
   trigger is listed in [Audit History](Audit%20History.md).
 - **`cargo machete`** — finds dependencies declared but never used.
-- **`cargo tree`** — dependency-graph review; checks the real crate
-  graph against the edges stated in `AGENTS.md`.
 - **`cargo llvm-cov`** — actual code coverage, turning testability
   claims from asserted into measured.
 
