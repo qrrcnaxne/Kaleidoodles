@@ -36,6 +36,7 @@ This applies to this project's crates, not third-party dependencies; reconsider 
 Use relevant tools when installed; don't install tools or add project configuration without a reason and approval.
 
 - `cargo machete` is the first choice for likely unused dependencies; `cargo-shear` is an alternative. `cargo udeps` is a deeper alternative requiring nightly.
+- `cargo llvm-cov` measures test coverage; use it when coverage data would inform test design rather than as a routine build check.
 - `cargo audit` checks locked dependencies against RustSec advisories. Configured `cargo deny check` can additionally enforce advisory, license, duplicate-version, and source policies.
 - `typos` checks spelling; `cargo sort --check` checks Cargo.toml table ordering.
 - `cargo hack check --feature-powerset` can exercise feature combinations once the project has meaningful features; select combinations carefully to avoid an excessive build matrix.
@@ -55,7 +56,7 @@ See [the audit index](docs/Audit%20History.md) for rerun triggers and [Software 
 
 ## Tool availability checked in this environment
 
-Available: stable Rust with rustfmt and Clippy; `cargo-sort` 2.0.1, `cargo-machete` 0.9.2, and `cargo-audit` 0.22.2. Not found: `typos`, `cargo-shear`, `cargo-hack`, `cargo-geiger`, `cargo-deny`, `cargo-udeps`, `cargo-semver-checks`, Kani, and Bevy CLI/linter. Miri's Cargo shim exists, but its component is not installed for the active stable toolchain. Recheck availability in a new session.
+Available: stable Rust with rustfmt and Clippy; `cargo-sort` 2.0.1, `cargo-machete` 0.9.2, `cargo-audit` 0.22.2, and `cargo-llvm-cov` 0.9.0. Not found: `typos`, `cargo-shear`, `cargo-hack`, `cargo-geiger`, `cargo-deny`, `cargo-udeps`, `cargo-semver-checks`, Kani, and Bevy CLI/linter. Miri's Cargo shim exists, but its component is not installed for the active stable toolchain. Recheck availability in a new session.
 
 ## Model recommendations and experiments
 
@@ -77,16 +78,16 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 ## Exporting video clips
 
-The app supports a deterministic frame-capture mode for offline video export.
+The app supports a fixed-step frame-capture mode for offline video export.
 
 - Keep exported `.mp4` files under `data/<sketch-name>/`—one folder per sketch. `data/` is gitignored; never commit artifacts. Name them per what the clip shows rather than prefixing with the project name.
 - Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory. Optional `--fps <n>` and `--duration <seconds>` flags override the 60 fps / 10 s defaults (e.g. `--fps 30 --duration 20`).
 - Recording runs headless: `WinitPlugin` is disabled, no primary window is created, and `ScheduleRunnerPlugin` drives the loop at the recording rate.
 - The sketch renders to a strict **1080 × 1920** offscreen `RenderTarget::Image`.
-- The simulation advances at the fixed **1/fps** timestep and the pipeline saves exactly **fps × duration** PNG frames (defaults: 600 frames = 10 s at 60 fps). The first few renders of a run are discarded (GPU warm-up) so the exported sequence never starts with blank frames.
+- The simulation advances at the fixed **1/fps** timestep and the pipeline saves exactly **fps × duration** PNG frames (defaults: 600 frames = 10 s at 60 fps). The first few renders of a run are discarded (GPU warm-up) so the exported sequence never starts with blank frames. This guarantees a fixed timestep and frame count, not bit-identical pixels across separate process runs.
 - The app exits automatically after the last frame.
 - For a population-only headless run with no PNG output, use `cargo run -- --simulate --fps 30 --duration 120`; the fish-tank sketch prints population counts every five simulated seconds and a final machine-readable `RESULT` line (including `counts`, per-level minima, and a `stocked` tally proving whether immigration insurance had to fire).
-- `cargo run -- --demo` runs the fish tank's legibility presentation instead of its calibrated equilibrium: a few large, slow fish with ring markers on births, kills, and natural deaths. Add `--record <dir> --duration 60` to capture it.
+- `cargo run -- --demo` runs the fish tank's legibility presentation instead of its calibrated equilibrium: a few large, slow fish with ring markers on births, kills, and natural deaths. Add `--record <dir> --fps 30 --duration 60` to capture a 60-second reel.
 - `scripts/sweep.sh` runs many `--simulate` runs in parallel and ranks survivors; pass parameter grids through environment variables (`RATES`, `SEEDS`, `OUT`, …) or `RANDOM_RUNS=<n>` for a random search. Sweep output directories (`sweep*/`) are gitignored.
 - Encode the PNG sequence with ffmpeg and write the result under the sketch's folder in `data/`:
 

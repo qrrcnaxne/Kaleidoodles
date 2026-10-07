@@ -1,11 +1,14 @@
-# Kaleidoodles 
-Creative coding 
+# Kaleidoodles
 
-This is list AI suggest I do. Whether I do or no is separate. 
+A Rust and Bevy creative-coding project.
+
+## Idea catalog
+
+A nonbinding catalog of creative-coding possibilities; checked entries have been implemented in sketches or experiments. See [the ledger](docs/Ledger.md) for the built pieces.
 
 ## Generative Art
-- [ ] Particle systems
-- [ ] Flow fields
+- [x] Particle systems
+- [x] Flow fields
 - [ ] Perlin noise
 - [ ] Particle trails
 - [ ] Attractors
@@ -29,9 +32,9 @@ This is list AI suggest I do. Whether I do or no is separate.
 - [ ] Impossible geometry
 
 ## Artificial Life & Emergent Systems
-- [ ] Boids and flocking
-- [ ] Predator-prey simulation
-- [ ] Agent-based simulations
+- [x] Boids and flocking
+- [x] Predator-prey simulation
+- [x] Agent-based simulations
 - [ ] Conway's Game of Life
 - [ ] Elementary cellular automata
 - [ ] Custom cellular automata
@@ -46,7 +49,7 @@ This is list AI suggest I do. Whether I do or no is separate.
 - [ ] Genetic algorithms
 - [ ] Evolutionary art
 - [ ] Neural cellular automata
-- [ ] Ecosystem simulation
+- [x] Ecosystem simulation
 - [ ] Self-organising systems
 - [ ] Reaction networks
 
@@ -156,3 +159,7 @@ This is list AI suggest I do. Whether I do or no is separate.
 - [ ] Liquid surfaces
 - [ ] Iridescent materials
 - [ ] Psychedelic visual effects
+
+## Reference
+
+- [Shan Shui Inf](https://github.com/LingDong-/shan-shui-inf) is a source of inspiration for future procedural-landscape sketches.

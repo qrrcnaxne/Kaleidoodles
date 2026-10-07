@@ -6,12 +6,11 @@ Describe code-quality audit methods and tools, and keep an append-only record of
 
 ## Formal audits / tooling
 
-Manual review only goes so far — these are real, runnable tools that
-mechanically check parts of the codebase instead of relying on memory.
-`AGENTS.md`'s `fmt`/`clippy`/`doc` hygiene pass is the only one run on
-a routine basis — none of these are wired into CI yet.
+Manual review only goes so far — these runnable tools mechanically check
+parts of the codebase. Routine Rust checks and available optional tools are
+listed in `AGENTS.md`; none of the tools below are wired into CI.
 
-**High value — cheap, plugs a gap, adopted as current scope:**
+**High value — selected for use when relevant:**
 - **`cargo audit`** — checks `Cargo.lock` against the RustSec advisory
   database. Advisories can change without project changes; its rerun
   trigger is listed in [Audit History](Audit%20History.md).
@@ -43,3 +42,4 @@ rerun trigger is listed in [Audit History](Audit%20History.md).
 what it found, what happened as a result.** Append, don't overwrite.
 
 - **Docs-purpose audit:** Reviewed the docs against their purposes; found that `Ledger.md` included project and recording infrastructure, beyond its intended art-piece scope. Added purpose sections, narrowed the ledger to the flow-field sketch, and separated rerun triggers from audit methods and run results.
+- **Documentation synchronization and language audit (2026-10-07):** Reviewed all repository Markdown against file purposes, current project behavior, and the writing guidelines; synced the README's implemented-idea checklist and added the Shan Shui Inf reference, clarified recording reproducibility and the demo command in `AGENTS.md`, updated the available-tool notes, created the purpose-scoped dancer design note linked from the four queue phases, and confirmed the queue contains no fish-tank work.
