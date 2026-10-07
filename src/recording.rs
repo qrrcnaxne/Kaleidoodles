@@ -22,11 +22,14 @@ pub const RECORDING_WIDTH: u32 = 1080;
 pub const RECORDING_HEIGHT: u32 = 1920;
 pub const RECORDING_FPS: f32 = 60.0;
 pub const RECORDING_DURATION_SECONDS: f32 = 10.0;
+/// Renders to discard before saving: the offscreen target and its meshes and
+/// materials need a few frames to reach the GPU, so early captures are blank.
+const WARMUP_FRAMES: u32 = 8;
 
-/// Configuration for deterministic frame-capture export.
+/// Fixed-step headless run configuration for frame export or population-only simulation.
 ///
-/// Created from CLI args (`--record <dir>`) in `app::run` and consumed by the
-/// active sketch to render a fixed-duration, fixed-framerate clip.
+/// Created from CLI args (`--record <dir>` or `--simulate`) in `app::run` and
+/// consumed by the active sketch to use fixed dimensions and a fixed timestep.
 #[derive(Resource, Debug)]
 pub struct Recording {
     pub output_dir: PathBuf,
@@ -34,36 +37,85 @@ pub struct Recording {
     pub height: u32,
     pub max_frames: u32,
     pub fixed_dt: f32,
-    pub saved_frames: u32,
+    pub completed_frames: u32,
+    warmup_frames: u32,
+    capture_frames: bool,
 }
 
 impl Recording {
-    /// Looks for `--record <directory>` in the process arguments.
+    /// Looks for `--record <directory>` or `--simulate`, plus optional
+    /// `--fps <n>` and `--duration <seconds>` flags in the process arguments.
     pub fn from_args() -> Option<Self> {
         let mut args = std::env::args().skip(1);
+        let mut fps = None;
+        let mut duration = None;
+        let mut output_dir = None;
+        let mut simulate_only = false;
+
         while let Some(arg) = args.next() {
-            if arg == "--record" {
-                let dir = args.next().unwrap_or_else(|| "frames".to_string());
-                return Some(Self::new(dir, RECORDING_WIDTH, RECORDING_HEIGHT));
+            match arg.as_str() {
+                "--record" => {
+                    output_dir = Some(args.next().unwrap_or_else(|| "frames".to_string()));
+                }
+                "--simulate" => simulate_only = true,
+                "--fps" => fps = args.next().and_then(|value| value.parse().ok()),
+                "--duration" => duration = args.next().and_then(|value| value.parse().ok()),
+                _ => {}
             }
         }
-        None
+
+        if simulate_only {
+            Some(Self::simulation_only(
+                RECORDING_WIDTH,
+                RECORDING_HEIGHT,
+                fps.unwrap_or(30.0),
+                duration.unwrap_or(120.0),
+            ))
+        } else {
+            output_dir.map(|dir| {
+                Self::new(
+                    dir,
+                    RECORDING_WIDTH,
+                    RECORDING_HEIGHT,
+                    fps.unwrap_or(RECORDING_FPS),
+                    duration.unwrap_or(RECORDING_DURATION_SECONDS),
+                )
+            })
+        }
     }
 
-    pub fn new(output_dir: impl Into<PathBuf>, width: u32, height: u32) -> Self {
-        let max_frames = (RECORDING_FPS * RECORDING_DURATION_SECONDS).max(0.0) as u32;
+    pub fn new(
+        output_dir: impl Into<PathBuf>,
+        width: u32,
+        height: u32,
+        fps: f32,
+        duration_secs: f32,
+    ) -> Self {
         Self {
             output_dir: output_dir.into(),
             width,
             height,
-            max_frames,
-            fixed_dt: 1.0 / RECORDING_FPS,
-            saved_frames: 0,
+            max_frames: (fps * duration_secs).max(0.0) as u32,
+            fixed_dt: 1.0 / fps,
+            completed_frames: 0,
+            warmup_frames: WARMUP_FRAMES,
+            capture_frames: true,
         }
+    }
+
+    fn simulation_only(width: u32, height: u32, fps: f32, duration_secs: f32) -> Self {
+        let mut run = Self::new(PathBuf::new(), width, height, fps, duration_secs);
+        run.capture_frames = false;
+        run.warmup_frames = 0;
+        run
+    }
+
+    pub fn captures_frames(&self) -> bool {
+        self.capture_frames
     }
 }
 
-/// Handle to the offscreen render target used while recording.
+/// Handle to the offscreen render target used during headless runs.
 #[derive(Resource, Debug, Deref, Clone)]
 pub struct RecordingRenderTarget(pub Handle<Image>);
 
@@ -88,6 +140,16 @@ impl Plugin for RecordingPlugin {
     }
 }
 
+/// Drives the same deterministic headless simulation without writing image files.
+pub struct HeadlessSimulationPlugin;
+
+impl Plugin for HeadlessSimulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_simulation_render_target)
+            .add_systems(PostUpdate, advance_simulation);
+    }
+}
+
 #[derive(Resource, Deref)]
 struct MainWorldReceiver(Receiver<FrameData>);
 
@@ -108,6 +170,25 @@ fn setup_render_target(
     recording: Res<Recording>,
     render_device: Res<RenderDevice>,
 ) {
+    let (handle, size) = create_render_target(&mut images, &recording, true);
+    commands.spawn(ImageCopier::new(handle.clone(), size, &render_device));
+    commands.insert_resource(RecordingRenderTarget(handle));
+}
+
+fn setup_simulation_render_target(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    recording: Res<Recording>,
+) {
+    let (handle, _) = create_render_target(&mut images, &recording, false);
+    commands.insert_resource(RecordingRenderTarget(handle));
+}
+
+fn create_render_target(
+    images: &mut Assets<Image>,
+    recording: &Recording,
+    copy_source: bool,
+) -> (Handle<Image>, Extent3d) {
     let size = Extent3d {
         width: recording.width,
         height: recording.height,
@@ -119,11 +200,39 @@ fn setup_render_target(
         TextureFormat::Rgba8Unorm,
         Some(TextureFormat::Rgba8UnormSrgb),
     );
-    image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
-    let handle = images.add(image);
+    if copy_source {
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+    }
+    (images.add(image), size)
+}
 
-    commands.spawn(ImageCopier::new(handle.clone(), size, &render_device));
-    commands.insert_resource(RecordingRenderTarget(handle));
+fn advance_simulation(mut recording: ResMut<Recording>, mut app_exit: MessageWriter<AppExit>) {
+    recording.completed_frames += 1;
+    if recording.completed_frames >= recording.max_frames {
+        app_exit.write(AppExit::Success);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simulation_run_has_fixed_rate_without_frame_capture() {
+        let run = Recording::simulation_only(1080, 1920, 30.0, 120.0);
+        assert!(!run.captures_frames());
+        assert_eq!(run.max_frames, 3_600);
+        assert_eq!(run.fixed_dt, 1.0 / 30.0);
+        assert_eq!(run.warmup_frames, 0);
+    }
+
+    #[test]
+    fn capture_run_saves_the_requested_frames_after_warmup() {
+        let run = Recording::new("frames", 1080, 1920, 30.0, 180.0);
+        assert!(run.captures_frames());
+        assert_eq!(run.max_frames, 5_400);
+        assert_eq!(run.warmup_frames, WARMUP_FRAMES);
+    }
 }
 
 #[derive(Component, Clone)]
@@ -244,6 +353,13 @@ fn save_frame(
         return;
     };
 
+    // Discard the first few rendered frames; the offscreen pipeline has not
+    // drawn the scene yet, so saving them would put blank frames at the start.
+    if recording.warmup_frames > 0 {
+        recording.warmup_frames -= 1;
+        return;
+    }
+
     let mut rgba = Vec::with_capacity(data.row_bytes * data.height as usize);
     for row in 0..data.height as usize {
         let start = row * data.padded_row_bytes;
@@ -254,12 +370,12 @@ fn save_frame(
         image::RgbaImage::from_raw(data.width, data.height, rgba).expect("invalid RGBA buffer");
     let frame_path = recording
         .output_dir
-        .join(format!("{:04}.png", recording.saved_frames));
+        .join(format!("{:04}.png", recording.completed_frames));
     img.save(&frame_path)
         .unwrap_or_else(|e| panic!("failed to save {frame_path:?}: {e}"));
 
-    recording.saved_frames += 1;
-    if recording.saved_frames >= recording.max_frames {
+    recording.completed_frames += 1;
+    if recording.completed_frames >= recording.max_frames {
         app_exit.write(AppExit::Success);
     }
 }

@@ -2,7 +2,7 @@ use std::f32::consts::TAU;
 
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use super::common::{simulation_delta, spawn_sketch_camera, viewport_size};
+use super::common::{halton, simulation_delta, spawn_sketch_camera, viewport_size};
 use crate::recording::{Recording, RecordingRenderTarget};
 
 const PARTICLE_COUNT: usize = 1_600;
@@ -152,23 +152,9 @@ fn initial_position(index: u32, viewport: Vec2) -> Vec2 {
     let y = halton(index, 3);
     Vec2::new((x - 0.5) * viewport.x, (y - 0.5) * viewport.y)
 }
-
 fn palette_hue(index: usize, elapsed_secs: f32) -> f32 {
     let palette_offset = COLOR_HUE_SPAN * index as f32 / COLOR_PALETTE_SIZE as f32;
     (COLOR_HUE_START + palette_offset + elapsed_secs * COLOR_DRIFT_SPEED).rem_euclid(360.0)
-}
-
-fn halton(mut index: u32, base: u32) -> f32 {
-    let mut fraction = 1.0 / base as f32;
-    let mut value = 0.0;
-
-    while index > 0 {
-        value += fraction * (index % base) as f32;
-        index /= base;
-        fraction /= base as f32;
-    }
-
-    value
 }
 
 fn wrap_position(position: Vec2, half_bounds: Vec2) -> Vec2 {

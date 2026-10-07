@@ -14,6 +14,8 @@ Run `cargo test -j 4 --all-targets --all-features` when relevant; tests are runt
 
 Use `-j 4` for Cargo commands that compile/build. `cargo fmt` and utility subcommands such as `cargo sort` do not accept a job limit and do not compile the app. Report checks that could not run rather than silently skipping them.
 
+Never execute binaries from `target/` directly; always run the app through Cargo (`cargo run --release -- ...`). One exception: scripts that fan out many short-lived runs in parallel (such as `scripts/sweep.sh`) may invoke the Cargo-built release binary themselves, because concurrent `cargo run` calls serialize on Cargo's build lock and lose the parallelism.
+
 ## Bevy-aware lint guidance
 
 The project uses Bevy 0.19.1. The latest `bevy_lint` release checked (0.6.0) supports Bevy 0.18 and requires its pinned nightly toolchain, so it is not compatible with this project. Check for a newer compatible release before considering it; do not install it without approval.
@@ -77,19 +79,24 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 The app supports a deterministic frame-capture mode for offline video export.
 
-- Keep all exported `.mp4` files in the `data/` directory. `data/` is gitignored; never commit artifacts.
-- Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory.
-- Recording runs headless: `WinitPlugin` is disabled, no primary window is created, and `ScheduleRunnerPlugin` drives the loop at a fixed 60 Hz.
+- Keep exported `.mp4` files under `data/<sketch-name>/`—one folder per sketch. `data/` is gitignored; never commit artifacts. Name them per what the clip shows rather than prefixing with the project name.
+- Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory. Optional `--fps <n>` and `--duration <seconds>` flags override the 60 fps / 10 s defaults (e.g. `--fps 30 --duration 20`).
+- Recording runs headless: `WinitPlugin` is disabled, no primary window is created, and `ScheduleRunnerPlugin` drives the loop at the recording rate.
 - The sketch renders to a strict **1080 × 1920** offscreen `RenderTarget::Image`.
-- The simulation advances at a fixed **1/60 s** timestep and the pipeline saves exactly **600 PNG frames** (10 seconds at 60 fps).
+- The simulation advances at the fixed **1/fps** timestep and the pipeline saves exactly **fps × duration** PNG frames (defaults: 600 frames = 10 s at 60 fps). The first few renders of a run are discarded (GPU warm-up) so the exported sequence never starts with blank frames.
 - The app exits automatically after the last frame.
-- Encode the PNG sequence with ffmpeg and write the result to `data/`:
+- For a population-only headless run with no PNG output, use `cargo run -- --simulate --fps 30 --duration 120`; the fish-tank sketch prints population counts every five simulated seconds and a final machine-readable `RESULT` line (including `counts`, per-level minima, and a `stocked` tally proving whether immigration insurance had to fire).
+- `cargo run -- --demo` runs the fish tank's legibility presentation instead of its calibrated equilibrium: a few large, slow fish with ring markers on births, kills, and natural deaths. Add `--record <dir> --duration 60` to capture it.
+- `scripts/sweep.sh` runs many `--simulate` runs in parallel and ranks survivors; pass parameter grids through environment variables (`RATES`, `SEEDS`, `OUT`, …) or `RANDOM_RUNS=<n>` for a random search. Sweep output directories (`sweep*/`) are gitignored.
+- Encode the PNG sequence with ffmpeg and write the result under the sketch's folder in `data/`:
 
   ```sh
   ffmpeg -framerate 60 -i frames/%04d.png \
     -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart \
-    data/kaleidoodles_reel.mp4
+    data/flow-field/color-drift.mp4
   ```
+
+  Match `-framerate` to the capture fps (e.g. `30` for a `--fps 30` run).
 
 - Requires `ffmpeg` installed. Adjust the resolution for other Instagram formats.
 

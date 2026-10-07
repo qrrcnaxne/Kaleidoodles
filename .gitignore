@@ -32,3 +32,6 @@ rustc-ice-*.txt
 frames/
 data/
 *.mp4
+
+# Equilibrium sweep outputs
+sweep*/
