@@ -28,6 +28,9 @@ rustc-ice-*.txt
 
 /target
 
+# Local Pi agent state
+/.pi/
+
 # Exported video artifacts
 frames/
 data/

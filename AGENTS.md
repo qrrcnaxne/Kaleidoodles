@@ -14,7 +14,7 @@ Run `cargo test -j 4 --all-targets --all-features` when relevant; tests are runt
 
 Use `-j 4` for Cargo commands that compile/build. `cargo fmt` and utility subcommands such as `cargo sort` do not accept a job limit and do not compile the app. Report checks that could not run rather than silently skipping them.
 
-Never execute binaries from `target/` directly; always run the app through Cargo (`cargo run --release -- ...`). One exception: scripts that fan out many short-lived runs in parallel (such as `scripts/sweep.sh`) may invoke the Cargo-built release binary themselves, because concurrent `cargo run` calls serialize on Cargo's build lock and lose the parallelism.
+Never execute binaries from `target/` directly; always run the app through Cargo (`cargo run --release -j 4 -- ...`). One exception: scripts that fan out many short-lived runs in parallel (such as `scripts/sweep.sh`) may invoke the Cargo-built release binary themselves, because concurrent `cargo run` calls serialize on Cargo's build lock and lose the parallelism.
 
 ## Bevy-aware lint guidance
 
@@ -72,34 +72,19 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 ## Creative-coding starting point and architecture reviews
 
-- Start substantive sketch work with a 2D flow-field particle experiment in `src/sketches/flow_field.rs`. Build a small CPU-based vertical slice and add only the camera and systems it needs; defer trails, interaction, shader/GPU work, debug UI, and generalized sketch switching until an experiment motivates them.
+- The initial 2D flow-field experiment in `src/sketches/flow_field.rs` established the project's first CPU-based vertical slice. For later sketches, start with the smallest sketch-specific CPU slice and add only the camera and systems it needs; defer generalized infrastructure until an experiment motivates it.
 - Proactively prompt the user for an architecture review at structural inflection points, not for every feature. Review before introducing a workspace/subcrate, generalized sketch registry or switching, broad rendering/parameter/UI infrastructure, or extracting shared code.
 - Also prompt when a second sketch begins duplicating or needing existing camera, input, math, or rendering code, when shared state/lifecycle becomes awkward across experiments, or when a new direction (such as GPU rendering or audio) changes architectural assumptions. Briefly explain the pressure, options, and smallest useful adjustment; wait for explicit implementation instruction.
 
 ## Exporting video clips
 
-The app supports a fixed-step frame-capture mode for offline video export.
+Follow the [README export workflow](README.md#export-a-reel); use `cargo run --release -j 4 -- ...` for captures to avoid debug-build PNG encoding overhead.
 
-- Keep exported `.mp4` files under `data/<sketch-name>/`—one folder per sketch. `data/` is gitignored; never commit artifacts. Name them per what the clip shows rather than prefixing with the project name.
-- Run `cargo run -- --record frames/` to capture frames into a local `frames/` directory. Optional `--fps <n>` and `--duration <seconds>` flags override the 60 fps / 10 s defaults (e.g. `--fps 30 --duration 20`).
-- Recording runs headless: `WinitPlugin` is disabled, no primary window is created, and `ScheduleRunnerPlugin` drives the loop at the recording rate.
-- The sketch renders to a strict **1080 × 1920** offscreen `RenderTarget::Image`.
-- The simulation advances at the fixed **1/fps** timestep and the pipeline saves exactly **fps × duration** PNG frames (defaults: 600 frames = 10 s at 60 fps). The first few renders of a run are discarded (GPU warm-up) so the exported sequence never starts with blank frames. This guarantees a fixed timestep and frame count, not bit-identical pixels across separate process runs.
-- The app exits automatically after the last frame.
-- For a population-only headless run with no PNG output, use `cargo run -- --simulate --fps 30 --duration 120`; the fish-tank sketch prints population counts every five simulated seconds and a final machine-readable `RESULT` line (including `counts`, per-level minima, and a `stocked` tally proving whether immigration insurance had to fire).
-- `cargo run -- --demo` runs the fish tank's legibility presentation instead of its calibrated equilibrium: a few large, slow fish with ring markers on births, kills, and natural deaths. Add `--record <dir> --fps 30 --duration 60` to capture a 60-second reel.
-- `scripts/sweep.sh` runs many `--simulate` runs in parallel and ranks survivors; pass parameter grids through environment variables (`RATES`, `SEEDS`, `OUT`, …) or `RANDOM_RUNS=<n>` for a random search. Sweep output directories (`sweep*/`) are gitignored.
-- Encode the PNG sequence with ffmpeg and write the result under the sketch's folder in `data/`:
-
-  ```sh
-  ffmpeg -framerate 60 -i frames/%04d.png \
-    -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart \
-    data/flow-field/color-drift.mp4
-  ```
-
-  Match `-framerate` to the capture fps (e.g. `30` for a `--fps 30` run).
-
-- Requires `ffmpeg` installed. Adjust the resolution for other Instagram formats.
+- Keep exported `.mp4` files under `data/<sketch-name>/`, name them for what they show, and never commit generated artifacts.
+- Use a fresh frame directory for each capture, match ffmpeg's input rate to `--fps`, and check the encoded video before removing its source frames.
+- Recording is headless but requires a GPU, uses a fixed simulation timestep, and renders at 1080 × 1920; output fps does not guarantee real-time capture speed.
+- Pass explicit `--bpm` for dancer reels; headless runs never open the microphone and remain neutral without manual tempo. Add `--seed` to reproduce choreography.
+- Fish-only demo, simulation, and sweep commands require selecting `FishTank` in `src/sketches.rs`; see the [simulation limitations](README.md#fish-simulation-and-sweeps).
 
 ## Queue convention
 

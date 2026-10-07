@@ -2,12 +2,24 @@
 
 ## Purpose
 
-Catalog the generative art pieces built in this repo—the sketches themselves, not infrastructure or project/process documentation.
+Catalog the generative art pieces built in this repo.
 
-## Fish tank (`src/sketches/fish_tank.rs`)
+## Stickman dancer
 
-A 2D CPU-boid ecosystem with four fish trophic levels: cyan fish eat sinking pellets, and each larger level hunts only the one directly below it. Fish bank meal energy to reproduce; half of the reproductive investment transfers to one offspring, while starvation, lifespan, and probabilistic prey escapes limit populations. Pellets spawn throughout the tank; species differ in size, speed, schooling behavior, energy use, and hunting success. Prey flee and dart from nearby predators, all fish repel one another at close range, and fish steer away from and bounce off tank walls. Immigration insurance stocks an adult into any species that drops below a small population floor, so no level can die out. Its default parameters are a calibrated equilibrium, found by randomized search, in which all four levels stay clear of that floor for a full 180-second reel. A `--demo` profile presents the same rules at reading pace instead: a handful of large, slow fish with expanding rings marking each birth, kill, and natural death.
+**Status:** Incomplete and paused while development moves to another piece; we plan to return to it in the future. Remaining work is documented in [Dancer](Dancer.md#v4-personality-and-presentation) and [Future directions](future.md#incomplete-live-microphone-tempo).
 
-## Flow field (`src/sketches/flow_field.rs`)
+A side-view stickman performs a seed-generated 256-beat dance assembled from 19 footwork, accent, and pose actions over a continuous groove. Rainbow limbs, white joints, fading endpoint trails, a perspective stage, and a sweeping disco globe provide the presentation. Kinematic foot targets and inverse kinematics drive the rig; horizontal silhouette fitting keeps travel inside portrait margins. A numbered catalog walkthrough is also available. Manual BPM supports repeatable reel capture; live microphone tempo remains experimental.
 
-A 2D generative sketch of 1,600 particles moving through a sinusoidal vortex flow field, with hues slowly drifting across green, blue, violet, and pink. Particles start in a deterministic Halton-sequence distribution and wrap at the viewport edges.
+The current export is `data/dancer/rainbow-moonwalk-139bpm-seed42.mp4`: 60 seconds at 30 fps, 1080 × 1920, seed 42, and 139 BPM, without audio. See [Dancer](Dancer.md) for motion design and [the renderer](../src/sketches/dancer.rs) for implementation.
+
+## Fish tank
+
+A CPU-boid ecosystem with four trophic levels: cyan fish eat sinking pellets, and each larger species hunts the one below it. Meals fund reproduction; starvation, age, and prey escapes limit populations. Schooling, fleeing, darting, repulsion, and wall avoidance shape the motion. Immigration can restock depleted species every five simulated seconds but does not prevent temporary extinction. Default parameters were calibrated over 180 seconds; the demo enlarges and slows 92 founder fish and marks births, kills, and natural deaths with rings.
+
+Implementation: [fish_tank.rs](../src/sketches/fish_tank.rs).
+
+## Flow field
+
+A 2D sketch of 1,600 particles moving through a sinusoidal vortex flow field, with drifting hues. Particles start in a deterministic Halton-sequence distribution and wrap at viewport edges.
+
+Implementation: [flow_field.rs](../src/sketches/flow_field.rs).
