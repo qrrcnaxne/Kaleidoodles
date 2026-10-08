@@ -4,6 +4,16 @@
 
 Catalog the generative art pieces built in this repo.
 
+## 3D attractor collection
+
+**Status:** Ten candidates, one per family, implemented, numerically checked, accepted visually, and exported.
+
+Thomas, Rössler, Aizawa, Halvorsen, Dadras, Rucklidge, Burke–Shaw, Chen–Lee, Rabinovich–Fabrikant, and Sprott B flows produce spatial rainbow trails, using candidate-specific counts of deterministic trajectories with 1,350 points each. Three-axis rotation (60/30/15-second X/Y/Z turns) and perspective reveal their depth. Fixed-step RK4 integrates family-specific equations; numbered controls allow direct comparison of ten family representatives. The initial trails are populated, framing adapts to the viewport, and density can be explored interactively.
+
+The full collection is exported under `data/attractors/`: ten silent MP4s, each 30 seconds at 30 fps and 1080 × 1920, using release builds and saved densities (Rössler 15, Chen–Lee 12, all others 24 trajectories). `collection-30s-30fps.json` records file metadata; each video was verified to contain 900 frames, and temporary capture frames were removed.
+
+See [Attractors](Attractors.md) for equations, sources, presets, and numerical limitations; implementation lives in [attractors.rs](../src/sketches/attractors.rs).
+
 ## Stickman dancer
 
 **Status:** Incomplete and paused while development moves to another piece; we plan to return to it in the future. Remaining work is documented in [Dancer](Dancer.md#v4-personality-and-presentation) and [Future directions](future.md#incomplete-live-microphone-tempo).

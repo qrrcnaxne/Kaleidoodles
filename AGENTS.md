@@ -78,6 +78,8 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 ## Exporting video clips
 
+Always obtain explicit user approval before starting a video export, including recording frames for that export; discussing a reel or specifying its duration, frame rate, or appearance is not export approval. Prepare the implementation and preview first, then ask for approval of the concrete export settings.
+
 Follow the [README export workflow](README.md#export-a-reel); use `cargo run --release -j 4 -- ...` for captures to avoid debug-build PNG encoding overhead.
 
 - Keep exported `.mp4` files under `data/<sketch-name>/`, name them for what they show, and never commit generated artifacts.

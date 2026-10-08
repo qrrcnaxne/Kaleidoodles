@@ -1,16 +1,20 @@
 # Kaleidoodles
 
-A Rust and Bevy 0.19.1 creative-coding app with three sketches: a procedural stickman dancer, a fish ecosystem, and a particle flow field.
+**Project status: paused / abandoned.** Active development has ended as the experiments reached diminishing returns; work is moving to a new project. The code and documentation remain available for reference, with no further work planned here.
+
+A Rust and Bevy 0.19.1 creative-coding app with four sketches: a 3D attractor collection, a procedural stickman dancer, a fish ecosystem, and a particle flow field.
 
 ## Run
 
 From the repository root, with stable Rust and a working graphics driver:
 
 ```sh
-cargo run --release -j 4 -- --bpm 139 --seed 42
+cargo run --release -j 4
 ```
 
-The dancer is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `FishTank` or `FlowField`. There is no runtime sketch selector. Without `--bpm`, live dancer sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
+The attractor preview shows its candidate and parameters on screen; use R to restart, Left/Right to switch ten candidates, one per family, and Up/Down to explore density. Original IDs 01 and 03–06 are retained; Lorenz (02) was removed as similar to Rucklidge; IDs 07–11 introduce new families. Keys 1–9 select directly, and Shift+1/2 select 10/11; use `--candidate <id>` for direct selection.
+
+The attractor is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `Dancer`, `FishTank`, or `FlowField`. There is no runtime sketch selector. For the dancer, without `--bpm`, live sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
 
 ## Export a reel
 
@@ -22,6 +26,8 @@ ffmpeg -nostdin -n -framerate 30 -i data/dancer/frames-139bpm-seed42/%04d.png \
   -frames:v 1800 -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart \
   data/dancer/dance-139bpm-seed42.mp4
 ```
+
+Select `Dancer` before using that example; the currently selected attractor can be captured with the same flags except `--bpm` and `--seed`, using paths under `data/attractors/`.
 
 This captures 1,800 PNG frames and produces a silent 60-second, 30 fps, 1080 × 1920 video. Add music separately. Keep artifacts under `data/<sketch-name>/`, which is gitignored. After checking the video, remove only that capture's frame directory to reclaim space.
 
@@ -40,6 +46,7 @@ Population observations occur every 150 simulation frames (five seconds at 30 fp
 `src/app.rs` assembles the app, `src/recording.rs` handles frame capture, and `src/sketches.rs` selects the sketch. Shared camera and timing helpers live in `src/sketches/common.rs`; dancer rendering, choreography, and audio live in `dancer.rs`, `dancer/moves.rs`, and `dancer/audio.rs` respectively.
 
 - [Ledger](docs/Ledger.md): built art pieces.
+- [Attractors](docs/Attractors.md): mathematical model and first candidate.
 - [Dancer](docs/Dancer.md): current motion design and remaining personality work.
 - [Future directions](docs/future.md): deferred experiments and microphone limitations.
 - [Queue](docs/Queue.md): the sole project backlog.
