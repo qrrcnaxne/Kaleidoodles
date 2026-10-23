@@ -4,6 +4,14 @@
 
 Catalog the generative art pieces built in this repo.
 
+## Reaction–diffusion
+
+**Status:** CPU artwork visually accepted and exported.
+
+Two chemical concentrations evolve through the driven Gray–Scott equations on a 180 × 320 periodic grid, rendered as a portrait neon texture. The feed/kill pair is selected from MIT's dynamic “wandering bubbles” example; deterministic seed patches and an 800-step warm-up establish patterns before playback. Chemical concentration drives the palette, which also drifts over time. R restarts and Space pauses. See [Reaction–diffusion](Reaction%20Diffusion.md) for mathematics and settings.
+
+The silent export is `data/reaction-diffusion/wandering-bubbles-200steps-60s-30fps.mp4`: 60 seconds at 30 fps and 1080 × 1920, rendered at 200 simulation steps per second. It contains 1,800 H.264/yuv420p frames and is 37.2 MB.
+
 ## 3D attractor collection
 
 **Status:** Ten candidates, one per family, implemented, numerically checked, accepted visually, and exported.

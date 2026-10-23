@@ -80,10 +80,10 @@ When the user asks which model to use for a task, recommend one based on the tas
 
 Always obtain explicit user approval before starting a video export, including recording frames for that export; discussing a reel or specifying its duration, frame rate, or appearance is not export approval. Prepare the implementation and preview first, then ask for approval of the concrete export settings.
 
-Follow the [README export workflow](README.md#export-a-reel); use `cargo run --release -j 4 -- ...` for captures to avoid debug-build PNG encoding overhead.
+Follow the [README export workflow](README.md#export-a-reel); use `cargo run --release -j 4 -- ...` for captures. `--video <output.mp4>` streams RGBA frames directly to ffmpeg; `--record <directory>` remains available for PNG sequences.
 
 - Keep exported `.mp4` files under `data/<sketch-name>/`, name them for what they show, and never commit generated artifacts.
-- Use a fresh frame directory for each capture, match ffmpeg's input rate to `--fps`, and check the encoded video before removing its source frames.
+- Use a new MP4 filename for each direct video capture; ffmpeg refuses to overwrite. For PNG sequences, use a fresh frame directory, match ffmpeg's input rate to `--fps`, and check the encoded video before removing source frames.
 - Recording is headless but requires a GPU, uses a fixed simulation timestep, and renders at 1080 × 1920; output fps does not guarantee real-time capture speed.
 - Pass explicit `--bpm` for dancer reels; headless runs never open the microphone and remain neutral without manual tempo. Add `--seed` to reproduce choreography.
 - Fish-only demo, simulation, and sweep commands require selecting `FishTank` in `src/sketches.rs`; see the [simulation limitations](README.md#fish-simulation-and-sweeps).
@@ -101,6 +101,7 @@ Each file in `docs/` begins, immediately after its title, with a `## Purpose` se
 - Work on `master` only. Don't create or switch to another branch.
 - Get explicit confirmation before every commit or push.
 - Discussing or settling a design is not authorization to implement it; wait for an explicit implementation instruction. A question is not a command.
+- Delegate all coding work to subagents; the coordinating agent chooses the model and effort level to prioritize token efficiency, with Luna at high effort suggested as a default for scoped work, not a requirement.
 
 ## Writing style
 

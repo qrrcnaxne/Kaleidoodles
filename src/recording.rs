@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+    process::{Child, ChildStdin, Command, Stdio},
+};
 
 use bevy::{
     app::{AppExit, Plugin},
@@ -28,14 +32,17 @@ const WARMUP_FRAMES: u32 = 8;
 
 /// Fixed-step headless run configuration for frame export or population-only simulation.
 ///
-/// Created from CLI args (`--record <dir>` or `--simulate`) in `app::run` and
+/// Created from CLI args (`--record <dir>`, `--video <file>`, or `--simulate`) in `app::run` and
 /// consumed by the active sketch to use fixed dimensions and a fixed timestep.
 #[derive(Resource, Debug)]
 pub struct Recording {
     pub output_dir: PathBuf,
+    video_output: Option<PathBuf>,
+    video_encoder: Option<VideoEncoder>,
     pub width: u32,
     pub height: u32,
     pub max_frames: u32,
+    pub fps: f32,
     pub fixed_dt: f32,
     pub completed_frames: u32,
     warmup_frames: u32,
@@ -43,36 +50,90 @@ pub struct Recording {
 }
 
 impl Recording {
-    /// Looks for `--record <directory>` or `--simulate`, plus optional
+    /// Looks for `--record <directory>`, `--video <file>`, or `--simulate`, plus optional
     /// `--fps <n>` and `--duration <seconds>` flags in the process arguments.
-    pub fn from_args() -> Option<Self> {
+    pub fn from_args() -> io::Result<Option<Self>> {
         let mut args = std::env::args().skip(1);
         let mut fps = None;
         let mut duration = None;
         let mut output_dir = None;
+        let mut video_output = None;
         let mut simulate_only = false;
+        let mut capture_modes = 0;
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--record" => {
-                    output_dir = Some(args.next().unwrap_or_else(|| "frames".to_string()));
+                    capture_modes += 1;
+                    output_dir = Some(next_flag_value(&mut args, "--record")?);
                 }
-                "--simulate" => simulate_only = true,
-                "--fps" => fps = args.next().and_then(|value| value.parse().ok()),
-                "--duration" => duration = args.next().and_then(|value| value.parse().ok()),
+                "--video" => {
+                    capture_modes += 1;
+                    video_output = Some(PathBuf::from(next_flag_value(&mut args, "--video")?));
+                }
+                "--simulate" => {
+                    capture_modes += 1;
+                    simulate_only = true;
+                }
+                "--fps" => {
+                    fps = Some(parse_flag_value(&mut args, "--fps")?);
+                }
+                "--duration" => {
+                    duration = Some(parse_flag_value(&mut args, "--duration")?);
+                }
                 _ => {}
             }
         }
 
+        if capture_modes > 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "choose only one of --record, --video, or --simulate",
+            ));
+        }
+
+        if let Some(path) = video_output.as_ref() {
+            let fps = fps.unwrap_or(RECORDING_FPS);
+            let duration = duration.unwrap_or(RECORDING_DURATION_SECONDS);
+            let frame_count = fps * duration;
+            if !fps.is_finite()
+                || fps <= 0.0
+                || !duration.is_finite()
+                || duration <= 0.0
+                || !frame_count.is_finite()
+                || frame_count < 1.0
+                || frame_count >= u32::MAX as f32
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "--video requires positive finite --fps and --duration values with at least one frame",
+                ));
+            }
+            if path.as_os_str().is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "--video output path cannot be empty",
+                ));
+            }
+        }
+
         if simulate_only {
-            Some(Self::simulation_only(
+            Ok(Some(Self::simulation_only(
                 RECORDING_WIDTH,
                 RECORDING_HEIGHT,
                 fps.unwrap_or(30.0),
                 duration.unwrap_or(120.0),
-            ))
+            )))
+        } else if let Some(path) = video_output {
+            Ok(Some(Self::video(
+                path,
+                RECORDING_WIDTH,
+                RECORDING_HEIGHT,
+                fps.unwrap_or(RECORDING_FPS),
+                duration.unwrap_or(RECORDING_DURATION_SECONDS),
+            )))
         } else {
-            output_dir.map(|dir| {
+            Ok(output_dir.map(|dir| {
                 Self::new(
                     dir,
                     RECORDING_WIDTH,
@@ -80,7 +141,7 @@ impl Recording {
                     fps.unwrap_or(RECORDING_FPS),
                     duration.unwrap_or(RECORDING_DURATION_SECONDS),
                 )
-            })
+            }))
         }
     }
 
@@ -93,14 +154,62 @@ impl Recording {
     ) -> Self {
         Self {
             output_dir: output_dir.into(),
+            video_output: None,
+            video_encoder: None,
             width,
             height,
             max_frames: (fps * duration_secs).max(0.0) as u32,
+            fps,
             fixed_dt: 1.0 / fps,
             completed_frames: 0,
             warmup_frames: WARMUP_FRAMES,
             capture_frames: true,
         }
+    }
+
+    fn video(
+        path: impl Into<PathBuf>,
+        width: u32,
+        height: u32,
+        fps: f32,
+        duration_secs: f32,
+    ) -> Self {
+        let mut run = Self::new(PathBuf::new(), width, height, fps, duration_secs);
+        run.video_output = Some(path.into());
+        run
+    }
+
+    pub fn start_video_encoder(&mut self) -> io::Result<()> {
+        let Some(path) = self.video_output.as_ref() else {
+            return Ok(());
+        };
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
+            std::fs::create_dir_all(parent)?;
+        }
+        if path.exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("video output already exists: {path:?}"),
+            ));
+        }
+        self.video_encoder = Some(VideoEncoder::spawn(
+            path,
+            self.width,
+            self.height,
+            self.fps,
+            self.max_frames,
+        )?);
+        Ok(())
+    }
+
+    pub fn finish_video_encoder(&mut self) -> io::Result<()> {
+        if let Some(encoder) = self.video_encoder.take() {
+            encoder.finish()?;
+        }
+        Ok(())
     }
 
     fn simulation_only(width: u32, height: u32, fps: f32, duration_secs: f32) -> Self {
@@ -112,6 +221,121 @@ impl Recording {
 
     pub fn captures_frames(&self) -> bool {
         self.capture_frames
+    }
+
+    pub fn captures_video(&self) -> bool {
+        self.video_output.is_some()
+    }
+}
+
+fn next_flag_value(args: &mut impl Iterator<Item = String>, flag: &str) -> io::Result<String> {
+    args.next()
+        .filter(|value| !value.starts_with('-'))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("{flag} requires a value"),
+            )
+        })
+}
+
+fn parse_flag_value(args: &mut impl Iterator<Item = String>, flag: &str) -> io::Result<f32> {
+    next_flag_value(args, flag)?.parse().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{flag} requires a numeric value"),
+        )
+    })
+}
+
+#[derive(Debug)]
+struct VideoEncoder {
+    child: Child,
+    stdin: Option<ChildStdin>,
+}
+
+impl VideoEncoder {
+    fn spawn(
+        path: &std::path::Path,
+        width: u32,
+        height: u32,
+        fps: f32,
+        frames: u32,
+    ) -> io::Result<Self> {
+        let mut child = Command::new("ffmpeg")
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-nostdin",
+                "-n",
+                "-f",
+                "rawvideo",
+                "-pixel_format",
+                "rgba",
+                "-video_size",
+            ])
+            .arg(format!("{width}x{height}"))
+            .args(["-framerate"])
+            .arg(fps.to_string())
+            .args(["-i", "pipe:0", "-an", "-frames:v"])
+            .arg(frames.to_string())
+            .args([
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-crf",
+                "18",
+                "-movflags",
+                "+faststart",
+                "-threads",
+                "4",
+            ])
+            .arg(path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()?;
+        let Some(stdin) = child.stdin.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(io::Error::other(
+                "ffmpeg did not provide a pipe for raw video input",
+            ));
+        };
+        Ok(Self {
+            child,
+            stdin: Some(stdin),
+        })
+    }
+
+    fn write_frame(&mut self, rgba: &[u8]) -> io::Result<()> {
+        self.stdin
+            .as_mut()
+            .ok_or_else(|| io::Error::other("ffmpeg input is already closed"))?
+            .write_all(rgba)
+    }
+
+    fn finish(mut self) -> io::Result<()> {
+        drop(self.stdin.take());
+        let status = self.child.wait()?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(io::Error::other(format!(
+                "ffmpeg exited with status {status}"
+            )))
+        }
+    }
+}
+
+impl Drop for VideoEncoder {
+    fn drop(&mut self) {
+        drop(self.stdin.take());
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
     }
 }
 
@@ -353,6 +577,10 @@ fn save_frame(
         return;
     };
 
+    if recording.completed_frames >= recording.max_frames {
+        return;
+    }
+
     // Discard the first few rendered frames; the offscreen pipeline has not
     // drawn the scene yet, so saving them would put blank frames at the start.
     if recording.warmup_frames > 0 {
@@ -366,16 +594,40 @@ fn save_frame(
         rgba.extend_from_slice(&data.bytes[start..start + data.row_bytes]);
     }
 
-    let img =
-        image::RgbaImage::from_raw(data.width, data.height, rgba).expect("invalid RGBA buffer");
-    let frame_path = recording
-        .output_dir
-        .join(format!("{:04}.png", recording.completed_frames));
-    img.save(&frame_path)
-        .unwrap_or_else(|e| panic!("failed to save {frame_path:?}: {e}"));
+    if recording.video_output.is_some() {
+        let Some(encoder) = recording.video_encoder.as_mut() else {
+            eprintln!("ffmpeg encoder is unavailable during video capture");
+            app_exit.write(AppExit::error());
+            return;
+        };
+        if let Err(error) = encoder.write_frame(&rgba) {
+            eprintln!("failed to send frame to ffmpeg: {error}");
+            if let Err(finish_error) = recording.finish_video_encoder() {
+                eprintln!("failed to finish ffmpeg after frame write error: {finish_error}");
+            }
+            app_exit.write(AppExit::error());
+            return;
+        }
+    } else {
+        let img =
+            image::RgbaImage::from_raw(data.width, data.height, rgba).expect("invalid RGBA buffer");
+        let frame_path = recording
+            .output_dir
+            .join(format!("{:04}.png", recording.completed_frames));
+        img.save(&frame_path)
+            .unwrap_or_else(|e| panic!("failed to save {frame_path:?}: {e}"));
+    }
 
     recording.completed_frames += 1;
     if recording.completed_frames >= recording.max_frames {
-        app_exit.write(AppExit::Success);
+        match recording.finish_video_encoder() {
+            Ok(()) => {
+                app_exit.write(AppExit::Success);
+            }
+            Err(error) => {
+                eprintln!("failed to finish ffmpeg: {error}");
+                app_exit.write(AppExit::error());
+            }
+        }
     }
 }

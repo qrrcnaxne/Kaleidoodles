@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use bevy::{
@@ -13,8 +14,8 @@ use crate::{
     sketches::SketchesPlugin,
 };
 
-pub(crate) fn run() {
-    let run_config = Recording::from_args();
+pub(crate) fn run() -> Result<(), Box<dyn Error>> {
+    let run_config = Recording::from_args()?;
     let is_headless = run_config.is_some();
 
     let default_plugins = if is_headless {
@@ -35,9 +36,11 @@ pub(crate) fn run() {
         .add_plugins(SketchesPlugin);
 
     if let Some(run) = run_config {
+        let mut run = run;
+        run.start_video_encoder()?;
         let captures_frames = run.captures_frames();
         let frame_duration = Duration::from_secs_f64(f64::from(run.fixed_dt));
-        if captures_frames {
+        if captures_frames && !run.captures_video() {
             let _ = std::fs::create_dir_all(&run.output_dir);
         }
         app.insert_resource(run);
@@ -55,5 +58,9 @@ pub(crate) fn run() {
         }));
     }
 
-    app.run();
+    let exit = app.run();
+    if exit.is_error() {
+        return Err(std::io::Error::other(format!("app exited with {exit:?}")).into());
+    }
+    Ok(())
 }

@@ -7,6 +7,7 @@ mod common;
 mod dancer;
 mod fish_tank;
 mod flow_field;
+mod reaction_diffusion;
 
 /// The sketch the app currently runs; switch variants by changing this variant.
 enum ActiveSketch {
@@ -18,16 +19,21 @@ enum ActiveSketch {
     FlowField,
     #[allow(dead_code)]
     Dancer,
+    #[allow(dead_code)]
     Attractors,
+    ReactionDiffusion,
 }
 
-const ACTIVE_SKETCH: ActiveSketch = ActiveSketch::Attractors;
+const ACTIVE_SKETCH: ActiveSketch = ActiveSketch::ReactionDiffusion;
 
 pub(crate) struct SketchesPlugin;
 
 impl Plugin for SketchesPlugin {
     fn build(&self, app: &mut App) {
         match ACTIVE_SKETCH {
+            ActiveSketch::ReactionDiffusion => {
+                app.add_plugins(reaction_diffusion::ReactionDiffusionPlugin)
+            }
             ActiveSketch::Attractors => app.add_plugins(attractors::AttractorsPlugin),
             ActiveSketch::FishTank => app.add_plugins(fish_tank::FishTankPlugin),
             ActiveSketch::FlowField => app.add_plugins(flow_field::FlowFieldPlugin),

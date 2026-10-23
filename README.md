@@ -1,8 +1,6 @@
 # Kaleidoodles
 
-**Project status: paused / abandoned.** Active development has ended as the experiments reached diminishing returns; work is moving to a new project. The code and documentation remain available for reference, with no further work planned here.
-
-A Rust and Bevy 0.19.1 creative-coding app with four sketches: a 3D attractor collection, a procedural stickman dancer, a fish ecosystem, and a particle flow field.
+A Rust and Bevy 0.19.1 creative-coding app with five sketches: reaction–diffusion, a 3D attractor collection, a procedural stickman dancer, a fish ecosystem, and a particle flow field.
 
 ## Run
 
@@ -12,13 +10,23 @@ From the repository root, with stable Rust and a working graphics driver:
 cargo run --release -j 4
 ```
 
+The active reaction–diffusion sketch displays evolving neon chemical patterns; R restarts the deterministic field and Space pauses simulation and color. See [Reaction–diffusion](docs/Reaction%20Diffusion.md) for the model and settings.
+
 The attractor preview shows its candidate and parameters on screen; use R to restart, Left/Right to switch ten candidates, one per family, and Up/Down to explore density. Original IDs 01 and 03–06 are retained; Lorenz (02) was removed as similar to Rucklidge; IDs 07–11 introduce new families. Keys 1–9 select directly, and Shift+1/2 select 10/11; use `--candidate <id>` for direct selection.
 
-The attractor is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `Dancer`, `FishTank`, or `FlowField`. There is no runtime sketch selector. For the dancer, without `--bpm`, live sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
+The active sketch is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `ReactionDiffusion`, `Attractors`, `Dancer`, `FishTank`, or `FlowField`. There is no runtime sketch selector. For the dancer, without `--bpm`, live sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
 
 ## Export a reel
 
-Requires ffmpeg and a working GPU even though recording creates no window. Use a fresh frame directory and a new output filename for each capture:
+Requires ffmpeg and a working GPU even though recording creates no window. Stream frames directly to ffmpeg with `--video`:
+
+```sh
+cargo run --release -j 4 -- --video data/dancer/dance-139bpm-seed42.mp4 --bpm 139 --seed 42 --fps 30 --duration 60
+```
+
+This writes a silent H.264/yuv420p MP4 at 1080 × 1920, using CRF 18 and faststart metadata. Frames travel from GPU readback to ffmpeg through a pipe without temporary PNG files. The destination must be new; ffmpeg refuses to overwrite an existing file. Check the completed video before sharing it. Keep artifacts under `data/<sketch-name>/`, which is gitignored. Add music separately.
+
+PNG sequence capture remains available when you need individual frames:
 
 ```sh
 cargo run --release -j 4 -- --record data/dancer/frames-139bpm-seed42/ --bpm 139 --seed 42 --fps 30 --duration 60
@@ -27,11 +35,11 @@ ffmpeg -nostdin -n -framerate 30 -i data/dancer/frames-139bpm-seed42/%04d.png \
   data/dancer/dance-139bpm-seed42.mp4
 ```
 
-Select `Dancer` before using that example; the currently selected attractor can be captured with the same flags except `--bpm` and `--seed`, using paths under `data/attractors/`.
+Select `Dancer` before using that example; reaction–diffusion and attractor captures use the same flags except `--bpm` and `--seed`, with output under `data/reaction-diffusion/` and `data/attractors/`, respectively.
 
-This captures 1,800 PNG frames and produces a silent 60-second, 30 fps, 1080 × 1920 video. Add music separately. Keep artifacts under `data/<sketch-name>/`, which is gitignored. After checking the video, remove only that capture's frame directory to reclaim space.
+The PNG workflow captures 1,800 frames and produces a silent 60-second, 30 fps video. After checking the encoded video, remove only that capture's frame directory to reclaim space.
 
-Recording defaults to 60 fps and 10 seconds. Simulation advances by `1/fps`; the saved frame count truncates `fps × duration` to an integer. Eight warm-up renders are discarded while simulation continues. A seed reproduces choreography, not necessarily identical pixels across runs. GPU readback and synchronous PNG encoding can make capture slower than playback; release builds avoid the debug PNG-encoding slowdown seen on the one-minute dancer capture. The configured fps describes the exported timeline, not guaranteed capture throughput.
+Recording defaults to 60 fps and 10 seconds. Simulation advances by `1/fps`; the saved frame count truncates `fps × duration` to an integer. Eight warm-up renders are discarded while simulation continues. A seed reproduces choreography, not necessarily identical pixels across runs. GPU readback and synchronous output can make capture slower than playback; release builds avoid the debug PNG-encoding slowdown seen on the one-minute dancer capture. The configured fps describes the exported timeline, not guaranteed capture throughput.
 
 ## Fish simulation and sweeps
 
@@ -46,7 +54,8 @@ Population observations occur every 150 simulation frames (five seconds at 30 fp
 `src/app.rs` assembles the app, `src/recording.rs` handles frame capture, and `src/sketches.rs` selects the sketch. Shared camera and timing helpers live in `src/sketches/common.rs`; dancer rendering, choreography, and audio live in `dancer.rs`, `dancer/moves.rs`, and `dancer/audio.rs` respectively.
 
 - [Ledger](docs/Ledger.md): built art pieces.
-- [Attractors](docs/Attractors.md): mathematical model and first candidate.
+- [Reaction–diffusion](docs/Reaction%20Diffusion.md): Gray–Scott model and preview behavior.
+- [Attractors](docs/Attractors.md): mathematical model and collection.
 - [Dancer](docs/Dancer.md): current motion design and remaining personality work.
 - [Future directions](docs/future.md): deferred experiments and microphone limitations.
 - [Queue](docs/Queue.md): the sole project backlog.
@@ -64,13 +73,13 @@ A nonbinding catalog of creative-coding possibilities; checked entries have been
 - [ ] Perlin noise
 - [x] Procedural character animation
 - [ ] Particle trails
-- [ ] Attractors
+- [x] Attractors
 - [ ] Random walks
 - [ ] L-systems
 - [ ] Fractals
 - [ ] Recursive branching
 - [ ] Space-filling curves
-- [ ] Reaction-diffusion
+- [x] Reaction-diffusion
 - [ ] Procedural landscapes
 - [ ] Terrain generation
 - [ ] Contour lines
