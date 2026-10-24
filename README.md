@@ -1,6 +1,6 @@
 # Kaleidoodles
 
-A Rust and Bevy 0.19.1 creative-coding app with five sketches: reaction–diffusion, a 3D attractor collection, a procedural stickman dancer, a fish ecosystem, and a particle flow field.
+A Rust and Bevy 0.19.1 creative-coding app with seven sketches: crystal growth, Brownian motion, reaction–diffusion, a 3D attractor collection, a procedural stickman dancer, a fish ecosystem, and a particle flow field.
 
 ## Run
 
@@ -10,11 +10,13 @@ From the repository root, with stable Rust and a working graphics driver:
 cargo run --release -j 4
 ```
 
-The active reaction–diffusion sketch displays evolving neon chemical patterns; R restarts the deterministic field and Space pauses simulation and color. See [Reaction–diffusion](docs/Reaction%20Diffusion.md) for the model and settings.
+The active crystal-growth sketch shows walkers diffusing through a bounded portrait lattice and sticking to a growing cluster; R restarts, N selects the next seed, and Space pauses. See [Crystal growth](docs/Crystal%20Growth.md) for its DLA model and limits.
+
+The Brownian sketch shows gas molecules transferring momentum to five larger tracers in a reflecting portrait container; R resets the same seed, N selects the next seed, M toggles molecule visibility, and Space pauses. See [Brownian motion](docs/Brownian%20Motion.md) for the model and limitations.
 
 The attractor preview shows its candidate and parameters on screen; use R to restart, Left/Right to switch ten candidates, one per family, and Up/Down to explore density. Original IDs 01 and 03–06 are retained; Lorenz (02) was removed as similar to Rucklidge; IDs 07–11 introduce new families. Keys 1–9 select directly, and Shift+1/2 select 10/11; use `--candidate <id>` for direct selection.
 
-The active sketch is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `ReactionDiffusion`, `Attractors`, `Dancer`, `FishTank`, or `FlowField`. There is no runtime sketch selector. For the dancer, without `--bpm`, live sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
+The active sketch is selected by `ACTIVE_SKETCH` in `src/sketches.rs`; change that constant to select `CrystalGrowth`, `BrownianMotion`, `ReactionDiffusion`, `Attractors`, `Dancer`, `FishTank`, or `FlowField`. There is no runtime sketch selector. Brownian motion accepts `--seed <number>` (default 42). For the dancer, without `--bpm`, live sessions open the default microphone; tempo tracking is experimental. Manual BPM accepts values from 30 to 300. `--move-demo --bpm 139` runs the numbered 19-action walkthrough.
 
 ## Export a reel
 
@@ -35,7 +37,7 @@ ffmpeg -nostdin -n -framerate 30 -i data/dancer/frames-139bpm-seed42/%04d.png \
   data/dancer/dance-139bpm-seed42.mp4
 ```
 
-Select `Dancer` before using that example; reaction–diffusion and attractor captures use the same flags except `--bpm` and `--seed`, with output under `data/reaction-diffusion/` and `data/attractors/`, respectively.
+Select `Dancer` before using that example. Crystal growth, Brownian motion, reaction–diffusion, and attractor captures use the same recording flags without `--bpm`, with output under `data/crystal-growth/`, `data/brownian-motion/`, `data/reaction-diffusion/`, and `data/attractors/`, respectively. Brownian motion accepts `--seed` (default 42); crystal growth selects seeds with N and does not read `--seed`.
 
 The PNG workflow captures 1,800 frames and produces a silent 60-second, 30 fps video. After checking the encoded video, remove only that capture's frame directory to reclaim space.
 
@@ -54,6 +56,8 @@ Population observations occur every 150 simulation frames (five seconds at 30 fp
 `src/app.rs` assembles the app, `src/recording.rs` handles frame capture, and `src/sketches.rs` selects the sketch. Shared camera and timing helpers live in `src/sketches/common.rs`; dancer rendering, choreography, and audio live in `dancer.rs`, `dancer/moves.rs`, and `dancer/audio.rs` respectively.
 
 - [Ledger](docs/Ledger.md): built art pieces.
+- [Crystal growth](docs/Crystal%20Growth.md): lattice DLA model, controls, and preview limits.
+- [Brownian motion](docs/Brownian%20Motion.md): hard-disk gas model, controls, and limitations.
 - [Reaction–diffusion](docs/Reaction%20Diffusion.md): Gray–Scott model and preview behavior.
 - [Attractors](docs/Attractors.md): mathematical model and collection.
 - [Dancer](docs/Dancer.md): current motion design and remaining personality work.
@@ -74,7 +78,7 @@ A nonbinding catalog of creative-coding possibilities; checked entries have been
 - [x] Procedural character animation
 - [ ] Particle trails
 - [x] Attractors
-- [ ] Random walks
+- [x] Random walks
 - [ ] L-systems
 - [ ] Fractals
 - [ ] Recursive branching

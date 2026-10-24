@@ -3,7 +3,9 @@
 use bevy::prelude::{App, Plugin};
 
 mod attractors;
+mod brownian_motion;
 mod common;
+mod crystal_growth;
 mod dancer;
 mod fish_tank;
 mod flow_field;
@@ -11,6 +13,9 @@ mod reaction_diffusion;
 
 /// The sketch the app currently runs; switch variants by changing this variant.
 enum ActiveSketch {
+    #[allow(dead_code)]
+    BrownianMotion,
+    CrystalGrowth,
     /// Kept selectable for the completed ecosystem experiment.
     #[allow(dead_code)]
     FishTank,
@@ -21,16 +26,19 @@ enum ActiveSketch {
     Dancer,
     #[allow(dead_code)]
     Attractors,
+    #[allow(dead_code)]
     ReactionDiffusion,
 }
 
-const ACTIVE_SKETCH: ActiveSketch = ActiveSketch::ReactionDiffusion;
+const ACTIVE_SKETCH: ActiveSketch = ActiveSketch::CrystalGrowth;
 
 pub(crate) struct SketchesPlugin;
 
 impl Plugin for SketchesPlugin {
     fn build(&self, app: &mut App) {
         match ACTIVE_SKETCH {
+            ActiveSketch::BrownianMotion => app.add_plugins(brownian_motion::BrownianMotionPlugin),
+            ActiveSketch::CrystalGrowth => app.add_plugins(crystal_growth::CrystalGrowthPlugin),
             ActiveSketch::ReactionDiffusion => {
                 app.add_plugins(reaction_diffusion::ReactionDiffusionPlugin)
             }

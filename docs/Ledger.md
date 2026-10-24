@@ -4,6 +4,26 @@
 
 Catalog the generative art pieces built in this repo.
 
+## Brownian motion
+
+**Status:** Implemented, visually accepted, and exported.
+
+A finite two-dimensional gas of 220 small hard disks transfers momentum through elastic collisions to five larger tracers distributed across the container. Reflecting walls contain the bodies, and short color-matched fading trails reveal each tracer's motion. The sketch uses fixed-step simulation and supports repeatable reset and seeded variation.
+
+See [Brownian motion](Brownian%20Motion.md) for the model, controls, and physical limits; implementation lives in [brownian_motion.rs](../src/sketches/brownian_motion.rs).
+
+The silent export is `data/brownian-motion/five-tracers-seed42-60s-30fps.mp4`: 60 seconds at 30 fps and 1080 × 1920, seed 42. It contains 1,800 H.264/yuv420p frames and is 25.8 MB.
+
+## Crystal growth
+
+**Status:** Seeded 60-second CPU replay visually accepted and exported.
+
+A bounded 180 × 320 lattice DLA sketch starts with one seed near the top. One hundred and twenty-eight unbiased random walkers enter below the cluster, diffuse through cardinal and diagonal steps, and attach on contact. The complete seeded run is precomputed and its genuine growth sequence is replayed evenly over 60 seconds, favoring downward growth without prescribing a branch shape. Lattice anisotropy makes this branching aggregation rather than a faceted-crystal model. R restarts the current deterministic seed, N advances to a new seed, and Space pauses.
+
+See [Crystal growth](Crystal%20Growth.md) for the model and limitations; implementation lives in [crystal_growth.rs](../src/sketches/crystal_growth.rs).
+
+The silent export is `data/crystal-growth/top-down-dla-seed42-complete-60s-30fps.mp4`: 60 seconds at 30 fps and 1080 × 1920, seed 42, with 1,800 H.264/yuv420p frames; file size is 8.4 MB.
+
 ## Reaction–diffusion
 
 **Status:** CPU artwork visually accepted and exported.
